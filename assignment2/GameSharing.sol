@@ -38,7 +38,7 @@ contract GameSharing {
         _;
     }
 
-    function addGame(string memory _name, string memory _description, uint32 _internalId) private {
+    function addGame(string memory _name, string memory _description, uint32 _internalId) internal {
         games.push(Game(_name, _description, _internalId, false, 10000, 8, uint32(block.timestamp)));
         uint newGameId = games.length - 1;
         gameToOwner[newGameId] = msg.sender;
@@ -65,24 +65,10 @@ contract GameSharing {
         }
     }
 
-    function shareGame(uint256 _gameId) public ownerOf(_gameId) {
-        games[_gameId].shared = true;
-    }
-
-    function changeMaxRentTimeInHours(uint256 _gameId, uint _newMaxRentTimeInHours) public ownerOf(_gameId) {
-        require(_newMaxRentTimeInHours >= 0);
-        games[_gameId].maxRentTimeInHours = _newMaxRentTimeInHours;
-    }
-
-    function changeRentalFee(uint256 _gameId, uint _newfee) public ownerOf(_gameId) {
-        require(_newfee >= 0);
-        games[_gameId].pricePerHour = _newfee;
-    }
-
     function rentGame(string memory _authToken, uint _gameId, uint _rentTime) public payable returns(string memory){
         require(games[_gameId].shared, "Game is not shared");
-        require(gameToRenter[_gameId] == address(0), "Game already rented");
-        require(msg.value >= _rentTime*games[_gameId].pricePerHour, "fee is less");
+        require(gameToRenter[_gameId] == address(0), "Game is already rented");
+        require(msg.value >= _rentTime*games[_gameId].pricePerHour, "Rent fee is less than required");
         require(_rentTime <= games[_gameId].maxRentTimeInHours, "Max rent time value exceeded");
 
         string memory jwtToken = mockApi.getGameAccessToUser(_authToken, games[_gameId].internalId);
@@ -95,13 +81,6 @@ contract GameSharing {
         renterGameCount[msg.sender]++;
         emit GameRented(_gameId);
         return jwtToken;
-    }
-
-    function reclaimGame(uint _gameId) public ownerOf(_gameId) {
-        require(gameToRenter[_gameId] != address(0), "Game is not rented");
-        require(games[_gameId].readyToReclaimTime <= uint32(block.timestamp + gracePeriod));
-        renterGameCount[msg.sender]--;
-        gameToRenter[_gameId] = address(0);
     }
 
     function getGamesByOwner(address _owner) public view returns(Game[] memory) {
@@ -127,4 +106,5 @@ contract GameSharing {
         }
         return result;
     }
+
 }
